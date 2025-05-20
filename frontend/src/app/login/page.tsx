@@ -61,25 +61,12 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error('Login error:', error);
       
-      if (error.message === 'Invalid mobile number or password') {
-        notifications.show({
-          title: 'Error',
-          message: 'Invalid mobile number or password',
-          color: 'red',
-        });
-      } else if (error.response?.data?.error) {
-        notifications.show({
-          title: 'Error',
-          message: error.response.data.error,
-          color: 'red',
-        });
-      } else {
-        notifications.show({
-          title: 'Error',
-          message: 'Something went wrong. Please try again.',
-          color: 'red',
-        });
-      }
+      // Show error message from the API response
+      notifications.show({
+        title: 'Error',
+        message: error.message || 'Something went wrong. Please try again.',
+        color: 'red',
+      });
     } finally {
       setIsLoading(false);
     }

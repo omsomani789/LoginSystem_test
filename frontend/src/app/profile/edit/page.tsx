@@ -4,34 +4,29 @@ import { useState } from 'react';
 import { useForm } from '@mantine/form';
 import { useRouter } from 'next/navigation';
 import { notifications } from '@mantine/notifications';
-import { PasswordInput, Button, Paper, Title, Container, Stack } from '@mantine/core';
+import { TextInput, Button, Paper, Title, Container, Stack } from '@mantine/core';
 import useAuthStore from '@/store/auth';
 import profileService from '@/services/profile';
 
-export default function ChangePasswordPage() {
+export default function EditProfilePage() {
   const router = useRouter();
-  const { token } = useAuthStore();
+  const { token, user, setAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm({
     initialValues: {
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
+      fullName: user?.fullName || '',
+      mobileNumber: user?.mobileNumber || '',
     },
     validate: {
-      currentPassword: (value) => {
-        if (!value) return 'Current password is required';
+      fullName: (value) => {
+        if (!value) return 'Full name is required';
+        if (!/^[a-zA-Z\s]+$/.test(value)) return 'Full name can only contain letters and spaces';
         return null;
       },
-      newPassword: (value) => {
-        if (!value) return 'New password is required';
-        if (value.length < 6) return 'Password must be at least 6 characters';
-        return null;
-      },
-      confirmPassword: (value, values) => {
-        if (!value) return 'Please confirm your password';
-        if (value !== values.newPassword) return 'Passwords do not match';
+      mobileNumber: (value) => {
+        if (!value) return 'Mobile number is required';
+        if (!/^[0-9]{10}$/.test(value)) return 'Mobile number must be 10 digits';
         return null;
       },
     },
@@ -41,7 +36,7 @@ export default function ChangePasswordPage() {
     if (!token) {
       notifications.show({
         title: 'Error',
-        message: 'You must be logged in to change your password',
+        message: 'You must be logged in to update your profile',
         color: 'red',
       });
       return;
@@ -49,23 +44,29 @@ export default function ChangePasswordPage() {
 
     try {
       setIsLoading(true);
-      await profileService.updatePassword(token, {
-        currentPassword: values.currentPassword,
-        newPassword: values.newPassword,
+      const updatedProfile = await profileService.updateProfile(token, values);
+      
+      // Update auth store with new user data
+      setAuth({
+        token,
+        user: {
+          id: user?.id || 0,
+          ...updatedProfile
+        }
       });
 
       notifications.show({
         title: 'Success',
-        message: 'Password updated successfully',
+        message: 'Profile updated successfully',
         color: 'green',
       });
 
       router.push('/profile');
     } catch (error: any) {
-      console.error('Password update error:', error);
+      console.error('Profile update error:', error);
       notifications.show({
         title: 'Error',
-        message: error.message || 'Failed to update password',
+        message: error.message || 'Failed to update profile',
         color: 'red',
       });
     } finally {
@@ -77,27 +78,21 @@ export default function ChangePasswordPage() {
     <Container size="xs" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <Paper radius="md" p="xl" withBorder style={{ width: '100%' }}>
         <Title order={2} ta="center" mt="md" mb={50}>
-          Change Password
+          Edit Profile
         </Title>
 
         <form onSubmit={form.onSubmit(onSubmit)}>
           <Stack>
-            <PasswordInput
-              label="Current Password"
-              placeholder="Enter your current password"
-              {...form.getInputProps('currentPassword')}
+            <TextInput
+              label="Full Name"
+              placeholder="Enter your full name"
+              {...form.getInputProps('fullName')}
             />
 
-            <PasswordInput
-              label="New Password"
-              placeholder="Enter your new password"
-              {...form.getInputProps('newPassword')}
-            />
-
-            <PasswordInput
-              label="Confirm New Password"
-              placeholder="Confirm your new password"
-              {...form.getInputProps('confirmPassword')}
+            <TextInput
+              label="Mobile Number"
+              placeholder="Enter your mobile number"
+              {...form.getInputProps('mobileNumber')}
             />
 
             <Button
@@ -106,7 +101,7 @@ export default function ChangePasswordPage() {
               mt="xl"
               loading={isLoading}
             >
-              {isLoading ? 'Updating...' : 'Update Password'}
+              {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
 
             <Button

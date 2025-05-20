@@ -6,18 +6,30 @@ export const viewProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.json({
+        status: 0,
+        message: 'User not found',
+        data: null
+      });
     }
 
     // Return formatted profile without password
     res.json({
-      id: user.id,
-      fullName: user.full_name,
-      mobileNumber: user.mobile_number
+      status: 1,
+      message: 'Profile fetched successfully',
+      data: {
+        id: user.id,
+        fullName: user.full_name,
+        mobileNumber: user.mobile_number
+      }
     });
   } catch (error) {
     console.error('Profile view error:', error);
-    res.status(500).json({ error: 'Error fetching profile' });
+    res.json({
+      status: 0,
+      message: 'Error fetching profile',
+      data: null
+    });
   }
 };
 

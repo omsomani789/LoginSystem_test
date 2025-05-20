@@ -24,13 +24,21 @@ app.use('/api/profile', profileRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
-  res.json({ message: 'API is running!' });
+  res.json({
+    status: 1,
+    message: 'API is running!',
+    data: null
+  });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  res.json({
+    status: 0,
+    message: 'Something went wrong!',
+    data: null
+  });
 });
 
 app.listen(PORT, () => {

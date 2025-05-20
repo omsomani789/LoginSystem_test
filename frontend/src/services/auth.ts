@@ -22,11 +22,20 @@ export interface AuthResponse {
   };
 }
 
+export interface ApiResponse<T> {
+  status: number;
+  message: string;
+  data: T | null;
+}
+
 const authService = {
   async signup(data: SignupData): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${API_URL}/auth/signup`, data);
-      return response.data;
+      const response = await axios.post<ApiResponse<AuthResponse>>(`${API_URL}/auth/signup`, data);
+      if (response.data.status === 0) {
+        throw new Error(response.data.message);
+      }
+      return response.data.data!;
     } catch (error: any) {
       console.error('Signup error:', error.response?.data || error.message);
       throw error;
@@ -36,13 +45,17 @@ const authService = {
   async login(data: LoginData): Promise<AuthResponse> {
     try {
       console.log('Attempting login with:', { mobileNumber: data.mobileNumber });
-      const response = await axios.post(`${API_URL}/auth/login`, data);
+      const response = await axios.post<ApiResponse<AuthResponse>>(`${API_URL}/auth/login`, data);
       console.log('Login response:', response.data);
-      return response.data;
+      
+      if (response.data.status === 0) {
+        throw new Error(response.data.message);
+      }
+      return response.data.data!;
     } catch (error: any) {
       console.error('Login error:', error.response?.data || error.message);
-      if (error.response?.status === 401) {
-        throw new Error('Invalid mobile number or password');
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
       }
       throw error;
     }
@@ -51,17 +64,21 @@ const authService = {
   async getProfile(token: string): Promise<AuthResponse['user']> {
     try {
       console.log('Fetching profile with token:', token);
-      const response = await axios.get(`${API_URL}/profile`, {
+      const response = await axios.get<ApiResponse<AuthResponse['user']>>(`${API_URL}/profile`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       console.log('Profile response:', response.data);
-      return response.data;
+      
+      if (response.data.status === 0) {
+        throw new Error(response.data.message);
+      }
+      return response.data.data!;
     } catch (error: any) {
       console.error('Get profile error:', error.response?.data || error.message);
-      if (error.response?.status === 401) {
-        throw new Error('Invalid or expired token');
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
       }
       throw error;
     }

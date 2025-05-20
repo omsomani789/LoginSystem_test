@@ -10,7 +10,11 @@ export const signup = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findByMobileNumber(mobileNumber);
     if (existingUser) {
-      return res.status(400).json({ error: 'Mobile number already registered' });
+      return res.json({
+        status: 0,
+        message: 'Mobile number already registered',
+        data: null
+      });
     }
 
     // Create new user
@@ -19,22 +23,33 @@ export const signup = async (req, res) => {
     // Generate JWT token
     const token = generateToken(userId);
 
-    res.status(201).json({
+    res.json({
+      status: 1,
       message: 'User registered successfully',
-      token,
-      user: {
-        id: userId,
-        fullName,
-        mobileNumber
+      data: {
+        token,
+        user: {
+          id: userId,
+          fullName,
+          mobileNumber
+        }
       }
     });
   } catch (error) {
     console.error('Signup error:', error);
     if (error.message.includes('{')) {
       const validationErrors = JSON.parse(error.message);
-      return res.status(400).json({ errors: validationErrors });
+      return res.json({
+        status: 0,
+        message: 'Validation error',
+        data: validationErrors
+      });
     }
-    res.status(500).json({ error: 'Error during signup' });
+    res.json({
+      status: 0,
+      message: 'Error during signup',
+      data: null
+    });
   }
 };
 
@@ -46,29 +61,44 @@ export const login = async (req, res) => {
     // Find user by mobile number
     const user = await User.findByMobileNumber(mobileNumber);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid mobile number or password' });
+      return res.json({
+        status: 0,
+        message: 'Invalid mobile number or password',
+        data: null
+      });
     }
 
     // Verify password
     const isPasswordValid = await comparePassword(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid mobile number or password' });
+      return res.json({
+        status: 0,
+        message: 'Invalid mobile number or password',
+        data: null
+      });
     }
 
     // Generate JWT token
     const token = generateToken(user.id);
 
     res.json({
+      status: 1,
       message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        fullName: user.full_name,
-        mobileNumber: user.mobile_number
+      data: {
+        token,
+        user: {
+          id: user.id,
+          fullName: user.full_name,
+          mobileNumber: user.mobile_number
+        }
       }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Error during login' });
+    res.json({
+      status: 0,
+      message: 'Error during login',
+      data: null
+    });
   }
 }; 
