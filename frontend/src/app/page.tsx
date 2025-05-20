@@ -2,26 +2,24 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import useAuthStore from '@/store/auth';
+import { Container, Center, Loader, Text } from '@mantine/core';
 
 export default function HomePage() {
   const router = useRouter();
-  const { token } = useAuthStore();
 
   useEffect(() => {
-    if (token) {
-      router.push('/profile');
-    } else {
-      router.push('/login');
-    }
-  }, [token, router]);
+    // Always redirect to login page
+    router.replace('/login');
+  }, [router]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Welcome to Login System</h1>
-        <p className="mt-2 text-gray-600">Redirecting...</p>
-      </div>
-    </div>
+    <Container size="xs" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Center>
+        <div style={{ textAlign: 'center' }}>
+          <Loader size="lg" />
+          <Text mt="md">Redirecting to login...</Text>
+        </div>
+      </Center>
+    </Container>
   );
 } 

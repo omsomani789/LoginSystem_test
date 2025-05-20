@@ -1,61 +1,112 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm } from '@mantine/form';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import Link from 'next/link';
+import { notifications } from '@mantine/notifications';
+import { Anchor, TextInput, Button, Paper, Title, Text, Container, Stack, Group, Loader, Center, Divider, Card } from '@mantine/core';
 import profileService, { ProfileData } from '@/services/profile';
 import useAuthStore from '@/store/auth';
+
+interface ProfileFormData {
+  fullName: string;
+  mobileNumber: string;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
   const { token, user, clearAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<ProfileData>();
+  const form = useForm<ProfileFormData>({
+    initialValues: {
+      fullName: '',
+      mobileNumber: '',
+    },
+    validate: {
+      fullName: (value) => {
+        if (!value) return 'Full name is required';
+        if (!/^[a-zA-Z\s]+$/.test(value)) return 'Full name can only contain letters and spaces';
+        return null;
+      },
+      mobileNumber: (value) => {
+        if (!value) return 'Mobile number is required';
+        if (!/^[0-9]{10}$/.test(value)) return 'Mobile number must be 10 digits';
+        return null;
+      },
+    },
+  });
 
+  // Fetch profile data only once when component mounts
   useEffect(() => {
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
     const fetchProfile = async () => {
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
       try {
-        const profile = await profileService.getProfile(token);
-        setValue('fullName', profile.fullName);
-        setValue('mobileNumber', profile.mobileNumber);
+        setIsFetching(true);
+        const data = await profileService.getProfile(token);
+        setProfileData(data);
+        form.setValues({
+          fullName: data.fullName,
+          mobileNumber: data.mobileNumber,
+        });
       } catch (error: any) {
-        if (error.response?.status === 401) {
+        console.error('Profile fetch error:', error);
+        if (error.message === 'Unauthorized' || error.response?.status === 401) {
           clearAuth();
           router.push('/login');
         } else {
-          toast.error('Failed to load profile');
+          notifications.show({
+            title: 'Error',
+            message: error.response?.data?.error || 'Failed to load profile',
+            color: 'red',
+          });
         }
+      } finally {
+        setIsFetching(false);
       }
     };
 
     fetchProfile();
-  }, [token, router, setValue, clearAuth]);
+  }, []); // Empty dependency array means this runs once on mount
 
-  const onSubmit = async (data: ProfileData) => {
-    if (!token) return;
+  const onSubmit = async (values: ProfileFormData) => {
+    if (!token) {
+      notifications.show({
+        title: 'Error',
+        message: 'You must be logged in to update your profile',
+        color: 'red',
+      });
+      return;
+    }
 
     try {
       setIsLoading(true);
-      await profileService.updateProfile(token, data);
-      toast.success('Profile updated successfully');
+      const updatedProfile = await profileService.updateProfile(token, {
+        id: user?.id || 0,
+        ...values,
+      });
+      setProfileData(updatedProfile);
+      notifications.show({
+        title: 'Success',
+        message: 'Profile updated successfully',
+        color: 'green',
+      });
       setIsEditing(false);
     } catch (error: any) {
+      console.error('Profile update error:', error);
       const errorMessage = error.response?.data?.error || 'Failed to update profile';
-      toast.error(errorMessage);
+      notifications.show({
+        title: 'Error',
+        message: errorMessage,
+        color: 'red',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -66,106 +117,91 @@ export default function ProfilePage() {
     router.push('/login');
   };
 
-  if (!user) {
+  // Show loading state while fetching profile data
+  if (isFetching) {
+    return (
+      <Container size="xs" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Center>
+          <Stack align="center" gap="md">
+            <Loader size="lg" />
+            <Text>Loading profile...</Text>
+          </Stack>
+        </Center>
+      </Container>
+    );
+  }
+
+  // If no profile data is available, don't render the form
+  if (!profileData) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white shadow sm:rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Profile Information</h3>
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  {isEditing ? 'Cancel' : 'Edit Profile'}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                  Full Name
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="fullName"
-                    type="text"
-                    disabled={!isEditing}
-                    {...register('fullName', {
-                      required: 'Full name is required',
-                      pattern: {
-                        value: /^[a-zA-Z\s]+$/,
-                        message: 'Full name can only contain letters and spaces',
-                      },
-                    })}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                  />
-                  {errors.fullName && (
-                    <p className="mt-2 text-sm text-red-600">{errors.fullName.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700">
-                  Mobile Number
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="mobileNumber"
-                    type="tel"
-                    disabled={!isEditing}
-                    {...register('mobileNumber', {
-                      required: 'Mobile number is required',
-                      pattern: {
-                        value: /^[0-9]{10}$/,
-                        message: 'Mobile number must be 10 digits',
-                      },
-                    })}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                  />
-                  {errors.mobileNumber && (
-                    <p className="mt-2 text-sm text-red-600">{errors.mobileNumber.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {isEditing && (
-                <div>
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                  >
-                    {isLoading ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              )}
-            </form>
-
-            <div className="mt-6">
-              <Link
-                href="/profile/password"
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+    <Container size="md" py="xl">
+      <Stack gap="xl">
+        <Paper radius="md" p="xl" withBorder>
+          <Group justify="space-between" mb="xl">
+            <Stack gap={0}>
+              <Title order={2}>Welcome, {profileData.fullName}!</Title>
+              <Text c="dimmed" size="sm">Manage your account settings and preferences</Text>
+            </Stack>
+            <Group>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditing(!isEditing)}
               >
-                Change Password →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+                {isEditing ? 'Cancel' : 'Edit Profile'}
+              </Button>
+              <Button
+                color="red"
+                onClick={handleLogout}
+              >
+                Logout
+              </Button>
+            </Group>
+          </Group>
+
+          <Divider my="md" />
+
+          <form onSubmit={form.onSubmit(onSubmit)}>
+            <Stack>
+              <Card withBorder p="md" radius="md">
+                <Stack gap="md">
+                  <TextInput
+                    label="Full Name"
+                    placeholder="Enter your full name"
+                    disabled={!isEditing}
+                    {...form.getInputProps('fullName')}
+                  />
+
+                  <TextInput
+                    label="Mobile Number"
+                    placeholder="Enter your mobile number"
+                    disabled={!isEditing}
+                    {...form.getInputProps('mobileNumber')}
+                  />
+
+                  {isEditing && (
+                    <Button
+                      type="submit"
+                      loading={isLoading}
+                      fullWidth
+                    >
+                      {isLoading ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  )}
+                </Stack>
+              </Card>
+            </Stack>
+          </form>
+
+          <Text mt="xl">
+            <Anchor component="a" href="/profile/password">
+              Change Password →
+            </Anchor>
+          </Text>
+        </Paper>
+      </Stack>
+    </Container>
   );
 } 

@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { AuthResponse } from '@/services/auth';
 
 interface AuthState {
   token: string | null;
   user: AuthResponse['user'] | null;
+  isAuthenticated: boolean;
   setAuth: (data: AuthResponse) => void;
   clearAuth: () => void;
 }
@@ -14,11 +15,30 @@ const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
-      setAuth: (data) => set({ token: data.token, user: data.user }),
-      clearAuth: () => set({ token: null, user: null }),
+      isAuthenticated: false,
+      setAuth: (data) => {
+        set({ 
+          token: data.token, 
+          user: data.user,
+          isAuthenticated: true 
+        });
+      },
+      clearAuth: () => {
+        set({ 
+          token: null, 
+          user: null,
+          isAuthenticated: false 
+        });
+      },
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.isAuthenticated = !!state.token;
+        }
+      },
     }
   )
 );
